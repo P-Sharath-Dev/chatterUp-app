@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB"
+      crossorigin="anonymous"
+    />
+    <title>ChatterUp App</title>
+  </head>
+  <body class="bg-dark">
+    <div class="container-fluid vh-100">
+      <div class="row h-100">
+        <!-- LEFT CHAT SECTION -->
+        <div class="col-md-9 d-flex flex-column bg-light vh-100">
+          <!-- HEADER -->
+          <div class="p-3 border-bottom">
+            <h3>ChatterUp</h3>
+            <p id="welcome-message" class="text-muted mb-0"></p>
+          </div>
+
+          <!-- CHAT MESSAGES -->
+          <div
+            id="message-container"
+            class="flex-grow-1 overflow-auto p-3"
+            style="height: 0"
+          ></div>
+
+          <!-- MESSAGE INPUT -->
+          <p id="typing-indicator" class="text-muted px-3"></p>
+          <div
+            class="p-3 border-top d-flex gap-2 position-sticky bottom-0 bg-light"
+          >
+            <input
+              type="text"
+              id="message-input"
+              class="form-control"
+              placeholder="Type a message..."
+            />
+
+            <button id="send-btn" class="btn btn-success">Send</button>
+          </div>
+        </div>
+
+        <!-- RIGHT USER PANEL -->
+        <div class="col-md-3 bg-black text-white">
+          <div class="p-3 border-bottom">
+            <h4>Online Users</h4>
+          </div>
+
+          <div id="online-users" class="p-3"></div>
+        </div>
+      </div>
+    </div>
+    <!-- socket.io client library -->
+    <script src="http://localhost:3000/socket.io/socket.io.js"></script>
+    <script src="/js/client.js"></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+      crossorigin="anonymous"
+    ></script>
+  </body>
+</html>
