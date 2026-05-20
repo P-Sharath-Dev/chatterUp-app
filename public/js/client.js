@@ -4,19 +4,47 @@ let typingTimeout;
 const socket = io.connect("http://localhost:3000");
 
 //getting username from prompt
-const username = prompt("Enter Your Name");
-if (!username) {
-  alert("Username required");
-  location.reload();
+let username = "";
+
+//keep asking until valid username entered
+while (true) {
+  username = prompt("Enter Your Name");
+
+  //prevent empty username
+  if (!username || username.trim() === "") {
+    alert("Username cannot be empty");
+    continue;
+  }
+  socket.emit("check_username", username);
+
+  break;
 }
 
-//prevent empty username
-// while (!username || username.trim() === "") {
-//   username = prompt("username cannot be empty. Enter you name");
-// }
+//prevent duplicate user name
+socket.on("duplicate_username", () => {
+  alert("username already exists");
 
-//sending username to server
-socket.emit("new_user", username);
+  while (true) {
+    username = prompt("Enter Your Name");
+    if (!username || username.trim() === "") {
+      alert("Username cannot be empty");
+      continue;
+    }
+    socket.emit("check_username", username);
+    break;
+  }
+});
+
+//valid user name
+socket.on("username_valid", (validUsername) => {
+  username = validUsername;
+  socket.emit("new_user", { username, profilePic });
+});
+
+//receiving existing profile picture
+socket.on("existing_profile_pic", (existingProfilePic) => {
+  profilePic = existingProfilePic;
+});
 
 //showing welcome message to user
 const welcomeMessage = document.getElementById("welcome-message");
@@ -30,6 +58,33 @@ const sendBtn = document.getElementById("send-btn");
 const onlineUsersContainer = document.getElementById("online-users");
 
 const typingIndicator = document.getElementById("typing-indicator");
+
+const profilePicInput = document.getElementById("profile-pic-input");
+
+let profilePic = "/images/avatar.png";
+
+//upload profile picture
+profilePicInput.addEventListener("change", async () => {
+  console.log("upload started");
+  const file = profilePicInput.files[0];
+  const formData = new FormData();
+  formData.append("profilePic", file);
+
+  const response = await fetch("/uploads", {
+    method: "POST",
+    body: formData,
+  });
+  const data = await response.json();
+  console.log(data);
+
+  profilePic = data.imageUrl;
+
+  //upload backend socket profile pic
+  socket.emit("new_user", {
+    username,
+    profilePic,
+  });
+});
 
 //===>detecting typing
 messageInput.addEventListener("input", () => {
@@ -54,8 +109,18 @@ sendBtn.addEventListener("click", () => {
   messageElement.classList.add("d-flex", "justify-content-end", "mb-2");
 
   messageElement.innerHTML = `
-  <div class="bg-success text-white p-2 rounded text-end" style = "max-width : 50%; word-wrap: break-word;">
-  <strong>you</strong><br>
+  <div class="bg-success text-white p-2 rounded shadow-sm text-end" style = "max-width : 50%; word-wrap: break-word;">
+ <div class="d-flex align-items-center gap-2 justify-content-end mb-1">
+
+    <img
+      src="${profilePic}"
+      class="rounded-circle border"
+      style="width:35px; height:35px; object-fit:cover;"
+    />
+
+    <strong>You</strong>
+
+  </div>
   ${message}<br>
   <small>${new Date().toLocaleTimeString()}</small><br>
   </div>
@@ -74,17 +139,33 @@ sendBtn.addEventListener("click", () => {
 //
 //===>receiving data from broadcasted message
 socket.on("broadcasting_message", (userMessage) => {
-  const { username, message, timestamp } = userMessage;
+  const { username, message, timestamp, profilePic } = userMessage;
 
   //creating message element
   const messageElement = document.createElement("div");
   messageElement.classList.add("d-flex", "justify-content-start", "mb-2");
-  messageElement.innerHTML = `
-    <div class="bg-secondary text-white p-2 rounded mb-2 text-start" style = "max-width : 50%; word-wrap: break-word;">
-    <strong>${username}</strong><br>
-    ${message}<br>
-    <small>${new Date().toLocaleTimeString()}</small><br>
+  messageElement.innerHTML = `<div class="bg-secondary text-white p-2 rounded mb-2 shadow-sm text-start"
+  style="max-width:50%; word-wrap:break-word;">
+
+    <div class="d-flex align-items-center gap-2 mb-1">
+
+      <img
+        src="${profilePic}"
+        class="rounded-circle border"
+        style="width:35px; height:35px; object-fit:cover;"
+      />
+
+      <strong>${username}</strong>
+
     </div>
+
+    ${message}<br>
+
+    <small>
+      ${new Date().toLocaleTimeString()}
+    </small>
+
+  </div>
     `;
 
   //adding message to the message container
@@ -100,6 +181,7 @@ socket.on("old_messages", (oldMessages) => {
     const messageElement = document.createElement("div");
 
     const isCurrentUser = message.username === username;
+    const oldProfilePic = message.profilePic || "/images/avatar.png";
 
     messageElement.classList.add(
       "d-flex",
@@ -114,9 +196,21 @@ socket.on("old_messages", (oldMessages) => {
           : "bg-secondary text-white text-start"
       } p-2 rounded"
       style="max-width: 50%; word-wrap: break-word;">
-        <strong>
-          ${isCurrentUser ? "You" : message.username}
-        </strong><br>
+        <div class="d-flex align-items-center gap-2 ${
+          isCurrentUser ? "justify-content-end" : ""
+        } mb-1">
+
+  <img
+    src="${oldProfilePic}"
+    class="rounded-circle border"
+    style="width:35px; height:35px; object-fit:cover;"
+  />
+
+  <strong>
+    ${isCurrentUser ? "You" : message.username}
+  </strong>
+
+</div>
 
         ${message.message}<br>
         <small>
@@ -135,6 +229,8 @@ socket.on("old_messages", (oldMessages) => {
 //
 //===> receiving online users
 socket.on("online_users", (users) => {
+  const onlineUsersHeading = document.getElementById("online-users-heading");
+  onlineUsersHeading.innerHTML = `Online Users (${users.length})`;
   //clearing previous users
   onlineUsersContainer.innerHTML = "";
 

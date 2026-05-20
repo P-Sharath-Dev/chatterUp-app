@@ -5,7 +5,7 @@ import "dotenv/config";
 import { connectToDB } from "./src/config/mongoose.config.js";
 import ChatModel from "./src/features/chat.schema.js";
 import chatRoutes from "./src/features/chat.routes.js";
-import { timeStamp } from "console";
+import multer from "multer";
 
 //creating express app
 const app = express();
@@ -18,6 +18,19 @@ app.set("views", "./views");
 
 //making public folder accessible
 app.use(express.static("public"));
+
+//multer storage configuration
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "public/uploads");
+  },
+
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + "-" + file.originalname);
+  },
+});
+
+const upload = multer({ storage });
 
 // creating http server
 const server = http.createServer(app);
@@ -41,8 +54,10 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     console.log("User disconnected");
 
-    //sending leave notificaion
-    socket.broadcast.emit("user_left", socket.username);
+    //sending leave notification only if username exists
+    if (socket.username) {
+      socket.broadcast.emit("user_left", socket.username);
+    }
 
     //removing disconnected user
     const filteredUsers = onlineUsers.filter((user) => {
@@ -62,12 +77,43 @@ io.on("connection", (socket) => {
     socket.broadcast.emit("show_typing", username);
   });
 
+  //checking duplicate username
+  socket.on("check_username", (username) => {
+    if (onlineUsers.includes(username)) {
+      socket.emit("duplicate_username");
+    } else {
+      socket.emit("username_valid", username);
+    }
+  });
+
   //handling new_user event
-  socket.on("new_user", async (username) => {
-    socket.username = username;
+  socket.on("new_user", async (userData) => {
+    socket.username = userData.username;
+
+    //checking existing user profile picture
+    const existingUser = await ChatModel.findOne({
+      username: userData.username,
+    });
+
+    if (existingUser && existingUser.profilePic) {
+      socket.profilePic = existingUser.profilePic;
+    } else {
+      socket.profilePic = userData.profilePic;
+    }
+
+    //sending existing profile pic to user
+    socket.emit("existing_profile_pic", socket.profilePic);
+
+    socket.profilePic = userData.profilePic;
 
     //adding user to online users array
-    onlineUsers.push(username);
+    // onlineUsers.push(socket.username);
+
+    //add user only if not already online
+    if (!onlineUsers.includes(socket.username)) {
+      onlineUsers.push(socket.username);
+    }
+
     console.log(onlineUsers);
 
     //sending updated online users list to all connected clients
@@ -75,10 +121,15 @@ io.on("connection", (socket) => {
     //if used socket.emit() only current user gets online users list
     io.emit("online_users", onlineUsers);
 
-    //sending join notification
-    socket.broadcast.emit("user_joined", username);
+    //sending join notification only first time
+    // socket.broadcast.emit("user_joined", socket.username);
+    if (!socket.isJoined) {
+      socket.broadcast.emit("user_joined", socket.username);
 
-    console.log("username : ", username);
+      socket.isJoined = true;
+    }
+
+    console.log("username : ", socket.username);
     try {
       //fetching old messages
       const oldMessages = await ChatModel.find();
@@ -94,6 +145,7 @@ io.on("connection", (socket) => {
   socket.on("new_message", async (message) => {
     const userMessage = {
       username: socket.username,
+      profilePic: socket.profilePic,
       message,
       timestamp: new Date(),
     };
@@ -101,6 +153,7 @@ io.on("connection", (socket) => {
       //creating new message document
       const newMessage = new ChatModel({
         username: socket.username,
+        profilePic: socket.profilePic,
         message,
         timestamp: new Date(),
       });
@@ -113,6 +166,13 @@ io.on("connection", (socket) => {
 
     //broadcasting the message to all clients except for the sender
     socket.broadcast.emit("broadcasting_message", userMessage);
+  });
+});
+
+//upload profile image
+app.post("/uploads", upload.single("profilePic"), (req, res) => {
+  res.json({
+    imageUrl: `/uploads/${req.file.filename}`,
   });
 });
 

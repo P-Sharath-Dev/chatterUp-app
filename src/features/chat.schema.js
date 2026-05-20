@@ -5,6 +5,7 @@ const chatSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  profilePic: String,
   message: {
     type: String,
     required: true,
