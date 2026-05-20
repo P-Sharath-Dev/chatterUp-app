@@ -72,6 +72,11 @@ io.on("connection", (socket) => {
     io.emit("online_users", onlineUsers);
   });
 
+  //updating profile picture
+  socket.on("update_profile_pic", (profilePic) => {
+    socket.profilePic = profilePic;
+  });
+
   //handling typing event
   socket.on("typing", (username) => {
     socket.broadcast.emit("show_typing", username);

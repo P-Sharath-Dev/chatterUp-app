@@ -80,10 +80,7 @@ profilePicInput.addEventListener("change", async () => {
   profilePic = data.imageUrl;
 
   //upload backend socket profile pic
-  socket.emit("new_user", {
-    username,
-    profilePic,
-  });
+  socket.emit("update_profile_pic", profilePic);
 });
 
 //===>detecting typing
